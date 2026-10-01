@@ -228,6 +228,8 @@ static void CENoop1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)
 static void CENoop2(id self, SEL _cmd, id arg1, id arg2) { (void)self; (void)_cmd; (void)arg1; (void)arg2; }
 static BOOL CEReturnNO0(id self, SEL _cmd) { (void)self; (void)_cmd; return NO; }
 static BOOL CEReturnYES0(id self, SEL _cmd) { (void)self; (void)_cmd; return YES; }
+static BOOL CEReturnNOInteger1(id self, SEL _cmd, long long value) { (void)self; (void)_cmd; (void)value; return NO; }
+static double CEReturnMinusTen0(id self, SEL _cmd) { (void)self; (void)_cmd; return -10.0; }
 static void CENoopBool1(id self, SEL _cmd, BOOL value) { (void)self; (void)_cmd; (void)value; }
 static BOOL CEReturnNO1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)arg1; return NO; }
 static id CEReturnNil0(id self, SEL _cmd) { (void)self; (void)_cmd; return nil; }
@@ -318,6 +320,8 @@ static void CEInstallKnownHooks(void) {
     if (cloudBuyCell) {
         CEReplaceClassMethod(cloudBuyCell, @selector(isClosed), (IMP)CEReturnYES0);
         CEReplaceClassMethod(cloudBuyCell, @selector(setIsClosed:), (IMP)CENoopBool1);
+        CEReplaceClassMethod(cloudBuyCell, @selector(canShowWithDeviceId:), (IMP)CEReturnNOInteger1);
+        CEReplaceClassMethod(cloudBuyCell, @selector(contentHeight), (IMP)CEReturnMinusTen0);
     }
     Class launch = objc_getClass("MeariLaunchAdModule");
     if (launch) {
