@@ -249,7 +249,7 @@ static void CEViewDidMoveToWindow(UIView *self, SEL _cmd) {
     }
 }
 
-static void (*CEOrigPresentViewController)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void));
+static void CEInstallAlarmCloudBuyDataSourceHook(void);\n\nstatic void (*CEOrigPresentViewController)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void));
 static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewController *controller, BOOL animated, void (^completion)(void)) {
     CEInstallAlarmCloudBuyDataSourceHook();
 
