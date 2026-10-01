@@ -245,13 +245,11 @@ static void CEViewDidMoveToWindow(UIView *self, SEL _cmd) {
     }
 }
 
-static void CEInstallAlarmPromoRowHookForClass(Class cls);
-
 static void (*CEOrigPresentViewController)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void));
 static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewController *controller, BOOL animated, void (^completion)(void)) {
     const char *controllerName = controller ? class_getName(controller.class) : NULL;
     if (controllerName && strcmp(controllerName, "WYMsgAlarmDetailSortVC") == 0) {
-        CEInstallAlarmPromoRowHookForClass(controller.class);
+
     }
 
     if (CEControllerShouldBeBlocked(controller)) {
@@ -265,7 +263,7 @@ static void (*CEOrigPushViewController)(UINavigationController *, SEL, UIViewCon
 static void CEPushViewController(UINavigationController *self, SEL _cmd, UIViewController *controller, BOOL animated) {
     const char *controllerName = controller ? class_getName(controller.class) : NULL;
     if (controllerName && strcmp(controllerName, "WYMsgAlarmDetailSortVC") == 0) {
-        CEInstallAlarmPromoRowHookForClass(controller.class);
+
     }
 
     if (CEControllerShouldBeBlocked(controller)) return;
@@ -311,117 +309,6 @@ static void CEInstallDeviceSettingCellHook(void) {
     CEDeviceSettingCellHookInstalled = YES;
 }
 
-static char CEAlarmPromoIndexPathKey;
-static char CEAlarmPromoReloadScheduledKey;
-static CGFloat (*CEOrigAlarmSortHeightForRow)(id, SEL, UITableView *, NSIndexPath *) = NULL;
-static id (*CEOrigAlarmSortCellForRow)(id, SEL, UITableView *, NSIndexPath *) = NULL;
-static BOOL CEAlarmPromoRowHookInstalled = NO;
-
-static BOOL CEIsAlarmCloudBuyCell(id cell) {
-    if (!cell) return NO;
-
-    Class promoClass = objc_getClass("WYMsgAlarmDetailCloudBuyTableViewCell");
-    return promoClass && [cell isKindOfClass:promoClass];
-}
-
-static CGFloat CEAlarmSortHeightForRow(id self, SEL _cmd, UITableView *tableView, NSIndexPath *indexPath) {
-    NSIndexPath *knownPromo =
-        objc_getAssociatedObject(self, &CEAlarmPromoIndexPathKey);
-
-    if (knownPromo && [knownPromo isEqual:indexPath]) {
-        return 0.01;
-    }
-
-    if (!CEOrigAlarmSortHeightForRow) return 0.0;
-    return CEOrigAlarmSortHeightForRow(self, _cmd, tableView, indexPath);
-}
-
-static id CEAlarmSortCellForRow(id self, SEL _cmd, UITableView *tableView, NSIndexPath *indexPath) {
-    id cell = CEOrigAlarmSortCellForRow ?
-        CEOrigAlarmSortCellForRow(self, _cmd, tableView, indexPath) : nil;
-
-    if (!CEIsAlarmCloudBuyCell(cell)) {
-        return cell;
-    }
-
-    NSIndexPath *knownPromo =
-        objc_getAssociatedObject(self, &CEAlarmPromoIndexPathKey);
-
-    BOOL isNewPromoRow = !(knownPromo && [knownPromo isEqual:indexPath]);
-
-    objc_setAssociatedObject(self,
-                             &CEAlarmPromoIndexPathKey,
-                             indexPath,
-                             OBJC_ASSOCIATION_COPY_NONATOMIC);
-
-    if ([cell isKindOfClass:UIView.class]) {
-        CEHideView((UIView *)cell);
-    }
-
-    if (isNewPromoRow &&
-        ![objc_getAssociatedObject(self, &CEAlarmPromoReloadScheduledKey) boolValue]) {
-        objc_setAssociatedObject(self,
-                                 &CEAlarmPromoReloadScheduledKey,
-                                 @YES,
-                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-
-        __weak UITableView *weakTable = tableView;
-        __weak id weakController = self;
-        NSIndexPath *reloadPath = [indexPath copy];
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            UITableView *strongTable = weakTable;
-            id strongController = weakController;
-
-            if (!strongTable || !strongController || !strongTable.window) {
-                if (strongController) {
-                    objc_setAssociatedObject(strongController,
-                                             &CEAlarmPromoReloadScheduledKey,
-                                             nil,
-                                             OBJC_ASSOCIATION_ASSIGN);
-                }
-                return;
-            }
-
-            NSInteger sections = strongTable.numberOfSections;
-            if (reloadPath.section < sections &&
-                reloadPath.row < [strongTable numberOfRowsInSection:reloadPath.section]) {
-                [strongTable reloadRowsAtIndexPaths:@[reloadPath]
-                                   withRowAnimation:UITableViewRowAnimationNone];
-            }
-
-            objc_setAssociatedObject(strongController,
-                                     &CEAlarmPromoReloadScheduledKey,
-                                     nil,
-                                     OBJC_ASSOCIATION_ASSIGN);
-        });
-    }
-
-    return cell;
-}
-
-static void CEInstallAlarmPromoRowHookForClass(Class cls) {
-    if (CEAlarmPromoRowHookInstalled || !cls) return;
-    if (strcmp(class_getName(cls), "WYMsgAlarmDetailSortVC") != 0) return;
-
-    Method heightMethod =
-        class_getInstanceMethod(cls, @selector(tableView:heightForRowAtIndexPath:));
-    Method cellMethod =
-        class_getInstanceMethod(cls, @selector(tableView:cellForRowAtIndexPath:));
-    if (!heightMethod || !cellMethod) return;
-
-    CEOrigAlarmSortHeightForRow =
-        (CGFloat (*)(id, SEL, UITableView *, NSIndexPath *))
-        method_getImplementation(heightMethod);
-    CEOrigAlarmSortCellForRow =
-        (id (*)(id, SEL, UITableView *, NSIndexPath *))
-        method_getImplementation(cellMethod);
-
-    method_setImplementation(heightMethod, (IMP)CEAlarmSortHeightForRow);
-    method_setImplementation(cellMethod, (IMP)CEAlarmSortCellForRow);
-    CEAlarmPromoRowHookInstalled = YES;
-}
-
 static void CEInstallKnownHooks(void) {
     CEInstallDeviceSettingCellHook();
 
@@ -459,6 +346,7 @@ static void CEInstallKnownHooks(void) {
             @"splashAdModel",
             @"iconOnRightTopHomeModel",
             @"iconOnHomeListCardModel",
+            @"atSecondAlarmMsgModel",
             @"previewGuideModel",
             @"_previewTrialAlertModel",
             @"alertOnCenterHome",
