@@ -245,8 +245,15 @@ static void CEViewDidMoveToWindow(UIView *self, SEL _cmd) {
     }
 }
 
+static void CEInstallAlarmPromoRowHookForClass(Class cls);
+
 static void (*CEOrigPresentViewController)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void));
 static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewController *controller, BOOL animated, void (^completion)(void)) {
+    const char *controllerName = controller ? class_getName(controller.class) : NULL;
+    if (controllerName && strcmp(controllerName, "WYMsgAlarmDetailSortVC") == 0) {
+        CEInstallAlarmPromoRowHookForClass(controller.class);
+    }
+
     if (CEControllerShouldBeBlocked(controller)) {
         if (completion) completion();
         return;
@@ -256,6 +263,10 @@ static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewCont
 
 static void (*CEOrigPushViewController)(UINavigationController *, SEL, UIViewController *, BOOL);
 static void CEPushViewController(UINavigationController *self, SEL _cmd, UIViewController *controller, BOOL animated) {
+    const char *controllerName = controller ? class_getName(controller.class) : NULL;
+    if (controllerName && strcmp(controllerName, "WYMsgAlarmDetailSortVC") == 0) {
+        CEInstallAlarmPromoRowHookForClass(controller.class);
+    }
 
     if (CEControllerShouldBeBlocked(controller)) return;
     CEOrigPushViewController(self, _cmd, controller, animated);
@@ -301,6 +312,7 @@ static void CEInstallDeviceSettingCellHook(void) {
 }
 
 static char CEAlarmPromoIndexPathKey;
+static char CEAlarmPromoReloadScheduledKey;
 static CGFloat (*CEOrigAlarmSortHeightForRow)(id, SEL, UITableView *, NSIndexPath *) = NULL;
 static id (*CEOrigAlarmSortCellForRow)(id, SEL, UITableView *, NSIndexPath *) = NULL;
 static BOOL CEAlarmPromoRowHookInstalled = NO;
@@ -320,15 +332,6 @@ static CGFloat CEAlarmSortHeightForRow(id self, SEL _cmd, UITableView *tableView
         return 0.01;
     }
 
-    UITableViewCell *visibleCell = [tableView cellForRowAtIndexPath:indexPath];
-    if (CEIsAlarmCloudBuyCell(visibleCell)) {
-        objc_setAssociatedObject(self,
-                                 &CEAlarmPromoIndexPathKey,
-                                 indexPath,
-                                 OBJC_ASSOCIATION_COPY_NONATOMIC);
-        return 0.01;
-    }
-
     if (!CEOrigAlarmSortHeightForRow) return 0.0;
     return CEOrigAlarmSortHeightForRow(self, _cmd, tableView, indexPath);
 }
@@ -337,22 +340,60 @@ static id CEAlarmSortCellForRow(id self, SEL _cmd, UITableView *tableView, NSInd
     id cell = CEOrigAlarmSortCellForRow ?
         CEOrigAlarmSortCellForRow(self, _cmd, tableView, indexPath) : nil;
 
-    if (CEIsAlarmCloudBuyCell(cell)) {
-        objc_setAssociatedObject(self,
-                                 &CEAlarmPromoIndexPathKey,
-                                 indexPath,
-                                 OBJC_ASSOCIATION_COPY_NONATOMIC);
+    if (!CEIsAlarmCloudBuyCell(cell)) {
+        return cell;
+    }
 
-        if ([cell isKindOfClass:UIView.class]) {
-            CEHideView((UIView *)cell);
-        }
+    NSIndexPath *knownPromo =
+        objc_getAssociatedObject(self, &CEAlarmPromoIndexPathKey);
+
+    BOOL isNewPromoRow = !(knownPromo && [knownPromo isEqual:indexPath]);
+
+    objc_setAssociatedObject(self,
+                             &CEAlarmPromoIndexPathKey,
+                             indexPath,
+                             OBJC_ASSOCIATION_COPY_NONATOMIC);
+
+    if ([cell isKindOfClass:UIView.class]) {
+        CEHideView((UIView *)cell);
+    }
+
+    if (isNewPromoRow &&
+        ![objc_getAssociatedObject(self, &CEAlarmPromoReloadScheduledKey) boolValue]) {
+        objc_setAssociatedObject(self,
+                                 &CEAlarmPromoReloadScheduledKey,
+                                 @YES,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
         __weak UITableView *weakTable = tableView;
+        __weak id weakController = self;
+        NSIndexPath *reloadPath = [indexPath copy];
+
         dispatch_async(dispatch_get_main_queue(), ^{
             UITableView *strongTable = weakTable;
-            if (!strongTable || !strongTable.window) return;
-            [strongTable beginUpdates];
-            [strongTable endUpdates];
+            id strongController = weakController;
+
+            if (!strongTable || !strongController || !strongTable.window) {
+                if (strongController) {
+                    objc_setAssociatedObject(strongController,
+                                             &CEAlarmPromoReloadScheduledKey,
+                                             nil,
+                                             OBJC_ASSOCIATION_ASSIGN);
+                }
+                return;
+            }
+
+            NSInteger sections = strongTable.numberOfSections;
+            if (reloadPath.section < sections &&
+                reloadPath.row < [strongTable numberOfRowsInSection:reloadPath.section]) {
+                [strongTable reloadRowsAtIndexPaths:@[reloadPath]
+                                   withRowAnimation:UITableViewRowAnimationNone];
+            }
+
+            objc_setAssociatedObject(strongController,
+                                     &CEAlarmPromoReloadScheduledKey,
+                                     nil,
+                                     OBJC_ASSOCIATION_ASSIGN);
         });
     }
 
@@ -381,28 +422,8 @@ static void CEInstallAlarmPromoRowHookForClass(Class cls) {
     CEAlarmPromoRowHookInstalled = YES;
 }
 
-static void CEInstallAlarmPromoRowHook(void) {
-    CEInstallAlarmPromoRowHookForClass(objc_getClass("WYMsgAlarmDetailSortVC"));
-}
-
-static void (*CEOrigTableViewSetDelegate)(UITableView *, SEL, id) = NULL;
-
-static void CETableViewSetDelegate(UITableView *self, SEL _cmd, id delegate) {
-    CEOrigTableViewSetDelegate(self, _cmd, delegate);
-
-    if (!delegate) return;
-    Class cls = object_getClass(delegate);
-    (void)cls;
-
-    const char *name = class_getName([delegate class]);
-    if (name && strcmp(name, "WYMsgAlarmDetailSortVC") == 0) {
-        CEInstallAlarmPromoRowHookForClass([delegate class]);
-    }
-}
-
 static void CEInstallKnownHooks(void) {
     CEInstallDeviceSettingCellHook();
-    CEInstallAlarmPromoRowHook();
 
     Class launch = objc_getClass("MeariLaunchAdModule");
     if (launch) {
@@ -481,13 +502,6 @@ static void CEInstallKnownHooks(void) {
 
 static void CEInstallUIKitHooks(void) {
     Method m;
-
-    m = class_getInstanceMethod(UITableView.class, @selector(setDelegate:));
-    if (m) {
-        CEOrigTableViewSetDelegate =
-            (void (*)(UITableView *, SEL, id))method_getImplementation(m);
-        method_setImplementation(m, (IMP)CETableViewSetDelegate);
-    }
 
     m = class_getInstanceMethod(UIView.class, @selector(didMoveToWindow));
     if (m) {
