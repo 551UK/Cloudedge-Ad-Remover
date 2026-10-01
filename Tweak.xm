@@ -368,7 +368,6 @@ static void CEInstallAlarmSortVMDataSourceHook(void) {
 static void CEInstallKnownHooks(void) {
     CEInstallDeviceSettingCellHook();
     CEInstallAlarmSortVMDataSourceHook();
-    CEInstallAlarmCloudBuyDataSourceHook();
 
     Class launch = objc_getClass("MeariLaunchAdModule");
     if (launch) {
