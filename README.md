@@ -14,6 +14,7 @@ Rootless tweak for **CloudEdge 6.3.4 / build 432** (`com.meari.smartcamera`).
 - Adds a native-style teal **Play** button to alarm/event rows app-wide for quicker playback.
 - Preserves **Alarm Management** in camera Settings while filtering unwanted Cloud Storage / AI promotional text.
 - Includes fallback class/text filtering for server-driven promotional UI.
+- Reduces startup overhead by using targeted hooks instead of full-window/global text scanning.
 
 ## Compatibility
 
