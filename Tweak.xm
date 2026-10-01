@@ -247,11 +247,6 @@ static void CEViewDidMoveToWindow(UIView *self, SEL _cmd) {
 
 static void (*CEOrigPresentViewController)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void));
 static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewController *controller, BOOL animated, void (^completion)(void)) {
-    const char *controllerName = controller ? class_getName(controller.class) : NULL;
-    if (controllerName && strcmp(controllerName, "WYMsgAlarmDetailSortVC") == 0) {
-
-    }
-
     if (CEControllerShouldBeBlocked(controller)) {
         if (completion) completion();
         return;
@@ -261,15 +256,9 @@ static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewCont
 
 static void (*CEOrigPushViewController)(UINavigationController *, SEL, UIViewController *, BOOL);
 static void CEPushViewController(UINavigationController *self, SEL _cmd, UIViewController *controller, BOOL animated) {
-    const char *controllerName = controller ? class_getName(controller.class) : NULL;
-    if (controllerName && strcmp(controllerName, "WYMsgAlarmDetailSortVC") == 0) {
-
-    }
-
     if (CEControllerShouldBeBlocked(controller)) return;
     CEOrigPushViewController(self, _cmd, controller, animated);
 }
-
 
 static void (*CEOrigDeviceSettingCellLayoutSubviews)(id, SEL) = NULL;
 static BOOL CEDeviceSettingCellHookInstalled = NO;
