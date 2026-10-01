@@ -271,7 +271,6 @@ static void CEInstallKnownHooks(void) {
             @"splashAdModel",
             @"iconOnRightTopHomeModel",
             @"iconOnHomeListCardModel",
-            @"atSecondAlarmMsgModel",
             @"previewGuideModel",
             @"_previewTrialAlertModel",
             @"alertOnCenterHome",
@@ -291,8 +290,7 @@ static void CEInstallKnownHooks(void) {
 
         NSArray<NSString *> *emptyArraySelectors = @[
             @"bannerListOnTopHome",
-            @"bannerListOnBottomHome",
-            @"operationPointList"
+            @"bannerListOnBottomHome"
         ];
         for (NSString *selectorName in emptyArraySelectors) {
             CEReplaceInstanceMethod(service, NSSelectorFromString(selectorName), (IMP)CEReturnEmptyArray0);
