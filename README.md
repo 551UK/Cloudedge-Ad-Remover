@@ -27,3 +27,7 @@ This tweak does **not** fake an active subscription, unlock paid entitlements, o
 ## Testing
 
 If any ad, AI item, subscription card, popup or purchase button remains, send a screenshot with the unwanted element circled in red. The remaining surface can then be mapped to its exact CloudEdge class or server-driven view and added to the remover.
+
+### v1.0.4
+- Removed the obsolete playback-button visibility hook.
+- The alarm-video Play button now uses CloudEdge's existing History action for the current event instead of opening the promotional screen.
