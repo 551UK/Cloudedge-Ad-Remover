@@ -122,7 +122,7 @@ static void CELayoutAlarmListPlayButton(id self) {
     CGRect bounds = cell.contentView.bounds;
 
     const CGFloat size = 36.0;
-    const CGFloat rightInset = 18.0;
+    const CGFloat rightInset = 30.0;
     CGFloat x = CGRectGetWidth(bounds) - rightInset - size;
     CGFloat y = floor((CGRectGetHeight(bounds) - size) * 0.5);
 
