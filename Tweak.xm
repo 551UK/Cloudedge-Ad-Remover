@@ -1,7 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
-#import <mach-o/dyld.h>
 
 static char CETextScrubberHiddenKey;
 
@@ -16,7 +15,13 @@ static BOOL CEContainsAny(NSString *value, NSArray<NSString *> *needles) {
 
 static BOOL CEIsUISuffixClass(NSString *name) {
     if (name.length == 0) return NO;
-    NSArray *suffixes = @[@"View", @"VC", @"ViewController", @"Cell", @"Alert", @"PopView", @"Header", @"Footer"];
+
+    static NSArray<NSString *> *suffixes;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        suffixes = @[@"View", @"VC", @"ViewController", @"Cell", @"Alert", @"PopView", @"Header", @"Footer"];
+    });
+
     for (NSString *suffix in suffixes) {
         if ([name hasSuffix:suffix]) return YES;
     }
@@ -70,21 +75,25 @@ static BOOL CEIsBlockedClassName(NSString *name) {
 
     if ([exact containsObject:name]) return YES;
 
-    NSArray<NSString *> *alwaysPrefixes = @[
-        @"MeariCameraSettingAI",
-        @"MeariSettingAI",
-        @"MeariAIAnalysis",
-        @"MeariAIDetection",
-        @"MeariAITrack",
-        @"MeariAIService",
-        @"WYCameraAISummary",
-        @"WYAISearch",
-        @"UIAISearch",
-        @"WYCloudService",
-        @"WYCloudPay",
-        @"WYCloudOrder",
-        @"WYMineHeaderPlan"
-    ];
+    static NSArray<NSString *> *alwaysPrefixes;
+    static dispatch_once_t prefixOnceToken;
+    dispatch_once(&prefixOnceToken, ^{
+        alwaysPrefixes = @[
+            @"MeariCameraSettingAI",
+            @"MeariSettingAI",
+            @"MeariAIAnalysis",
+            @"MeariAIDetection",
+            @"MeariAITrack",
+            @"MeariAIService",
+            @"WYCameraAISummary",
+            @"WYAISearch",
+            @"UIAISearch",
+            @"WYCloudService",
+            @"WYCloudPay",
+            @"WYCloudOrder",
+            @"WYMineHeaderPlan"
+        ];
+    });
     for (NSString *prefix in alwaysPrefixes) {
         if ([name hasPrefix:prefix]) return YES;
     }
@@ -217,15 +226,24 @@ static id CEReturnEmptyArray0(id self, SEL _cmd) { (void)self; (void)_cmd; retur
 static void (*CEOrigViewDidMoveToWindow)(UIView *, SEL);
 static void CEViewDidMoveToWindow(UIView *self, SEL _cmd) {
     CEOrigViewDidMoveToWindow(self, _cmd);
-    if (CEIsBlockedClassName(NSStringFromClass(self.class))) {
+
+    const char *rawName = class_getName(self.class);
+    if (!rawName || rawName[0] == '\0') return;
+
+    char first = rawName[0];
+    BOOL possiblePromoClass =
+        first == 'M' ||
+        first == 'W' ||
+        first == 'J' ||
+        first == 'O' ||
+        first == 'A' ||
+        (first == 'U' && strncmp(rawName, "UIAI", 4) == 0);
+
+    if (!possiblePromoClass) return;
+
+    if (CEIsBlockedClassName([NSString stringWithUTF8String:rawName])) {
         CEHideView(self);
     }
-}
-
-static void (*CEOrigViewControllerViewDidAppear)(UIViewController *, SEL, BOOL);
-static void CEViewControllerViewDidAppear(UIViewController *self, SEL _cmd, BOOL animated) {
-    CEOrigViewControllerViewDidAppear(self, _cmd, animated);
-    CEScrubViewTree(self.view);
 }
 
 static void (*CEOrigPresentViewController)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void));
@@ -243,39 +261,47 @@ static void CEPushViewController(UINavigationController *self, SEL _cmd, UIViewC
     CEOrigPushViewController(self, _cmd, controller, animated);
 }
 
-static void (*CEOrigLabelSetText)(UILabel *, SEL, NSString *);
-static void CELabelSetText(UILabel *self, SEL _cmd, NSString *text) {
-    CEOrigLabelSetText(self, _cmd, text);
 
-    if (CETextLooksPromotional(text)) {
-        objc_setAssociatedObject(self, &CETextScrubberHiddenKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        CEHideView(self);
-    } else if ([objc_getAssociatedObject(self, &CETextScrubberHiddenKey) boolValue]) {
-        self.hidden = NO;
-        self.alpha = 1.0;
-        self.accessibilityElementsHidden = NO;
-        objc_setAssociatedObject(self, &CETextScrubberHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+static void (*CEOrigDeviceSettingCellLayoutSubviews)(id, SEL) = NULL;
+static BOOL CEDeviceSettingCellHookInstalled = NO;
+
+static void CEDeviceSettingCellLayoutSubviews(id self, SEL _cmd) {
+    if (CEOrigDeviceSettingCellLayoutSubviews) {
+        CEOrigDeviceSettingCellLayoutSubviews(self, _cmd);
+    }
+
+    if ([self isKindOfClass:UIView.class]) {
+        CEScrubViewTree((UIView *)self);
     }
 }
 
-static void (*CEOrigButtonSetTitle)(UIButton *, SEL, NSString *, UIControlState);
-static void CEButtonSetTitle(UIButton *self, SEL _cmd, NSString *title, UIControlState state) {
-    CEOrigButtonSetTitle(self, _cmd, title, state);
+static void CEInstallDeviceSettingCellHook(void) {
+    if (CEDeviceSettingCellHookInstalled) return;
 
-    if (CETextLooksPromotional(title)) {
-        objc_setAssociatedObject(self, &CETextScrubberHiddenKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        CEHideView(self);
-    } else if ([objc_getAssociatedObject(self, &CETextScrubberHiddenKey) boolValue]) {
-        self.hidden = NO;
-        self.alpha = 1.0;
-        self.userInteractionEnabled = YES;
-        self.accessibilityElementsHidden = NO;
-        objc_setAssociatedObject(self, &CETextScrubberHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+    Class cls = objc_getClass("MeariDeviceSettingItemCell");
+    if (!cls) return;
+
+    SEL sel = @selector(layoutSubviews);
+    Method method = class_getInstanceMethod(cls, sel);
+    if (!method) return;
+
+    IMP original = method_getImplementation(method);
+    const char *types = method_getTypeEncoding(method);
+
+    if (class_addMethod(cls, sel, (IMP)CEDeviceSettingCellLayoutSubviews, types)) {
+        CEOrigDeviceSettingCellLayoutSubviews = (void (*)(id, SEL))original;
+    } else {
+        Method ownMethod = class_getInstanceMethod(cls, sel);
+        CEOrigDeviceSettingCellLayoutSubviews =
+            (void (*)(id, SEL))method_setImplementation(ownMethod,
+                                                        (IMP)CEDeviceSettingCellLayoutSubviews);
     }
-}
 
+    CEDeviceSettingCellHookInstalled = YES;
+}
 
 static void CEInstallKnownHooks(void) {
+    CEInstallDeviceSettingCellHook();
     Class launch = objc_getClass("MeariLaunchAdModule");
     if (launch) {
         CEReplaceInstanceMethod(launch, @selector(setup), (IMP)CENoop0);
@@ -360,12 +386,6 @@ static void CEInstallUIKitHooks(void) {
         method_setImplementation(m, (IMP)CEViewDidMoveToWindow);
     }
 
-    m = class_getInstanceMethod(UIViewController.class, @selector(viewDidAppear:));
-    if (m) {
-        CEOrigViewControllerViewDidAppear = (void (*)(UIViewController *, SEL, BOOL))method_getImplementation(m);
-        method_setImplementation(m, (IMP)CEViewControllerViewDidAppear);
-    }
-
     m = class_getInstanceMethod(UIViewController.class, @selector(presentViewController:animated:completion:));
     if (m) {
         CEOrigPresentViewController = (void (*)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void)))method_getImplementation(m);
@@ -378,25 +398,6 @@ static void CEInstallUIKitHooks(void) {
         method_setImplementation(m, (IMP)CEPushViewController);
     }
 
-    m = class_getInstanceMethod(UILabel.class, @selector(setText:));
-    if (m) {
-        CEOrigLabelSetText = (void (*)(UILabel *, SEL, NSString *))method_getImplementation(m);
-        method_setImplementation(m, (IMP)CELabelSetText);
-    }
-
-    m = class_getInstanceMethod(UIButton.class, @selector(setTitle:forState:));
-    if (m) {
-        CEOrigButtonSetTitle = (void (*)(UIButton *, SEL, NSString *, UIControlState))method_getImplementation(m);
-        method_setImplementation(m, (IMP)CEButtonSetTitle);
-    }
-}
-
-static void CEImageLoaded(const struct mach_header *mh, intptr_t vmaddr_slide) {
-    (void)mh;
-    (void)vmaddr_slide;
-    dispatch_async(dispatch_get_main_queue(), ^{
-        CEInstallKnownHooks();
-    });
 }
 
 __attribute__((constructor))
@@ -407,23 +408,5 @@ static void CEInit(void) {
 
         CEInstallUIKitHooks();
         CEInstallKnownHooks();
-        _dyld_register_func_for_add_image(CEImageLoaded);
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
-            CEInstallKnownHooks();
-            UIWindow *window = nil;
-            for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
-                if (![scene isKindOfClass:UIWindowScene.class]) continue;
-                UIWindowScene *windowScene = (UIWindowScene *)scene;
-                for (UIWindow *candidate in windowScene.windows) {
-                    if (candidate.isKeyWindow) {
-                        window = candidate;
-                        break;
-                    }
-                }
-                if (window) break;
-            }
-            CEScrubViewTree(window);
-        });
     }
 }
