@@ -397,7 +397,6 @@ static void CEInstallUIKitHooks(void) {
         CEOrigPushViewController = (void (*)(UINavigationController *, SEL, UIViewController *, BOOL))method_getImplementation(m);
         method_setImplementation(m, (IMP)CEPushViewController);
     }
-
 }
 
 __attribute__((constructor))
@@ -408,6 +407,5 @@ static void CEInit(void) {
 
         CEInstallUIKitHooks();
         CEInstallKnownHooks();
-
     }
 }
