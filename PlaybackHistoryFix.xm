@@ -87,7 +87,7 @@ static UIButton *CEAlarmListPlayButtonForCell(id cell) {
     button = [UIButton buttonWithType:UIButtonTypeSystem];
     button.accessibilityLabel = @"Play recording";
     button.tintColor = UIColor.systemTealColor;
-    button.layer.cornerRadius = 12.0;
+    button.layer.cornerRadius = 17.0;
     button.layer.borderWidth = 1.0;
     button.layer.borderColor = UIColor.systemTealColor.CGColor;
     button.backgroundColor = UIColor.clearColor;
@@ -97,7 +97,7 @@ static UIButton *CEAlarmListPlayButtonForCell(id cell) {
                               UIViewAutoresizingFlexibleBottomMargin;
 
     UIImageSymbolConfiguration *config =
-        [UIImageSymbolConfiguration configurationWithPointSize:11.0
+        [UIImageSymbolConfiguration configurationWithPointSize:14.0
                                                         weight:UIImageSymbolWeightSemibold];
     UIImage *image = [UIImage systemImageNamed:@"play.fill" withConfiguration:config];
     [button setImage:image forState:UIControlStateNormal];
@@ -121,8 +121,8 @@ static void CELayoutAlarmListPlayButton(id self) {
     UITableViewCell *cell = (UITableViewCell *)self;
     CGRect bounds = cell.contentView.bounds;
 
-    const CGFloat size = 24.0;
-    const CGFloat rightInset = 30.0;
+    const CGFloat size = 34.0;
+    const CGFloat rightInset = 40.0;
     CGFloat x = CGRectGetWidth(bounds) - rightInset - size;
     CGFloat y = floor((CGRectGetHeight(bounds) - size) * 0.5);
 
