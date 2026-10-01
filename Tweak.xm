@@ -1,7 +1,6 @@
 #import <UIKit/UIKit.h>
 #import <Foundation/Foundation.h>
 #import <objc/runtime.h>
-#import <objc/message.h>
 #import <mach-o/dyld.h>
 
 static BOOL CEContainsAny(NSString *value, NSArray<NSString *> *needles) {
@@ -241,63 +240,7 @@ static void CEButtonSetTitle(UIButton *self, SEL _cmd, NSString *title, UIContro
 }
 
 
-static void (*CEOrigSetIsHiddenPlaybackBtn)(id, SEL, BOOL) = NULL;
-static BOOL CEAlarmPlaybackButtonHookInstalled = NO;
-
-static void CEShowAlarmPlaybackButton(id self) {
-    if (!self) return;
-
-    SEL playbackSel = NSSelectorFromString(@"playbackBtn");
-    if (![self respondsToSelector:playbackSel]) return;
-
-    id (*sendId)(id, SEL) = (id (*)(id, SEL))objc_msgSend;
-    id buttonObj = sendId(self, playbackSel);
-
-    if ([buttonObj isKindOfClass:UIView.class]) {
-        UIView *view = (UIView *)buttonObj;
-        view.hidden = NO;
-        view.alpha = 1.0;
-        view.userInteractionEnabled = YES;
-    }
-
-    if ([buttonObj isKindOfClass:UIControl.class]) {
-        ((UIControl *)buttonObj).enabled = YES;
-    }
-}
-
-static void CESetIsHiddenPlaybackBtn(id self, SEL _cmd, BOOL hidden) {
-    (void)hidden;
-    if (CEOrigSetIsHiddenPlaybackBtn) {
-        CEOrigSetIsHiddenPlaybackBtn(self, _cmd, NO);
-    }
-    CEShowAlarmPlaybackButton(self);
-}
-
-static BOOL CEIsHiddenPlaybackBtn(id self, SEL _cmd) {
-    (void)self;
-    (void)_cmd;
-    return NO;
-}
-
-static void CEInstallAlarmPlaybackButtonFix(void) {
-    if (CEAlarmPlaybackButtonHookInstalled) return;
-
-    Class cls = objc_getClass("WYMsgAlarmDetailSortTableViewCell");
-    if (!cls) return;
-
-    Method setter = class_getInstanceMethod(cls, NSSelectorFromString(@"setIsHiddenPlaybackBtn:"));
-    Method getter = class_getInstanceMethod(cls, NSSelectorFromString(@"isHiddenPlaybackBtn"));
-    if (!setter || !getter) return;
-
-    CEOrigSetIsHiddenPlaybackBtn = (void (*)(id, SEL, BOOL))method_getImplementation(setter);
-    method_setImplementation(setter, (IMP)CESetIsHiddenPlaybackBtn);
-    method_setImplementation(getter, (IMP)CEIsHiddenPlaybackBtn);
-
-    CEAlarmPlaybackButtonHookInstalled = YES;
-}
-
 static void CEInstallKnownHooks(void) {
-    CEInstallAlarmPlaybackButtonFix();
     Class launch = objc_getClass("MeariLaunchAdModule");
     if (launch) {
         CEReplaceInstanceMethod(launch, @selector(setup), (IMP)CENoop0);
