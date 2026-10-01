@@ -6,4 +6,5 @@ Description: Removes CloudEdge 6.3.4 advertising, AI promotion UI, subscription 
 Maintainer: 551UK
 Author: 551UK
 Section: Tweaks
-Depends: mobilesubstrate
+Depends: mobilesubstrate, firmware (>= 15.0)
+Homepage: https://github.com/551UK/Cloudedge-Ad-Remover
