@@ -5,7 +5,7 @@ THEOS_PACKAGE_SCHEME = rootless
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = CloudedgeAdRemover
-CloudedgeAdRemover_FILES = Tweak.xm
+CloudedgeAdRemover_FILES = Tweak.xm PlaybackHistoryFix.xm
 CloudedgeAdRemover_CFLAGS = -fobjc-arc
 CloudedgeAdRemover_FRAMEWORKS = UIKit Foundation
 
