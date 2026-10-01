@@ -58,7 +58,6 @@ static BOOL CEIsBlockedClassName(NSString *name) {
             @"WYSimpleOpenBasicCloudView",
             @"WYMineServiceCell",
             @"WYMineCloudSaveCell",
-            @"WYMsgAlarmDetailCloudBuyTableViewCell",
             @"WYServiceReceiveView",
             @"WYCloudPrivilegeView",
             @"WYCameraServiceDrawVC",
@@ -214,15 +213,6 @@ static void CEReplaceInstanceMethod(Class cls, SEL sel, IMP replacement) {
     if (ownMethod) method_setImplementation(ownMethod, replacement);
 }
 
-static void CEReplaceClassMethod(Class cls, SEL sel, IMP replacement) {
-    if (!cls || !sel || !replacement) return;
-
-    Method method = class_getClassMethod(cls, sel);
-    if (!method) return;
-
-    method_setImplementation(method, replacement);
-}
-
 static void CENoop0(id self, SEL _cmd) { (void)self; (void)_cmd; }
 static void CENoop1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)arg1; }
 static void CENoop2(id self, SEL _cmd, id arg1, id arg2) { (void)self; (void)_cmd; (void)arg1; (void)arg2; }
@@ -261,6 +251,8 @@ static void CEViewDidMoveToWindow(UIView *self, SEL _cmd) {
 
 static void (*CEOrigPresentViewController)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void));
 static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewController *controller, BOOL animated, void (^completion)(void)) {
+    CEInstallAlarmCloudBuyDataSourceHook();
+
     if (CEControllerShouldBeBlocked(controller)) {
         if (completion) completion();
         return;
@@ -270,6 +262,8 @@ static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewCont
 
 static void (*CEOrigPushViewController)(UINavigationController *, SEL, UIViewController *, BOOL);
 static void CEPushViewController(UINavigationController *self, SEL _cmd, UIViewController *controller, BOOL animated) {
+    CEInstallAlarmCloudBuyDataSourceHook();
+
     if (CEControllerShouldBeBlocked(controller)) return;
     CEOrigPushViewController(self, _cmd, controller, animated);
 }
@@ -313,16 +307,79 @@ static void CEInstallDeviceSettingCellHook(void) {
     CEDeviceSettingCellHookInstalled = YES;
 }
 
+static NSInteger (*CEOrigAlarmSortNumberOfRows)(id, SEL, UITableView *, NSInteger) = NULL;
+static BOOL CEAlarmCloudBuyDataSourceHookInstalled = NO;
+
+static BOOL CEModelIsCloudBuy(id model) {
+    if (!model) return NO;
+
+    SEL sel = NSSelectorFromString(@"isCloudBuy");
+    if (![model respondsToSelector:sel]) return NO;
+
+    IMP imp = [model methodForSelector:sel];
+    if (!imp) return NO;
+
+    return ((BOOL (*)(id, SEL))imp)(model, sel);
+}
+
+static void CERemoveCloudBuyModelsFromSortController(id controller) {
+    if (!controller) return;
+
+    SEL sortVMSel = NSSelectorFromString(@"sortVM");
+    if (![controller respondsToSelector:sortVMSel]) return;
+
+    IMP sortVMImp = [controller methodForSelector:sortVMSel];
+    if (!sortVMImp) return;
+
+    id sortVM = ((id (*)(id, SEL))sortVMImp)(controller, sortVMSel);
+    if (!sortVM) return;
+
+    SEL dataSourceSel = NSSelectorFromString(@"dataSource");
+    if (![sortVM respondsToSelector:dataSourceSel]) return;
+
+    IMP dataSourceImp = [sortVM methodForSelector:dataSourceSel];
+    if (!dataSourceImp) return;
+
+    id dataSource = ((id (*)(id, SEL))dataSourceImp)(sortVM, dataSourceSel);
+    if (![dataSource isKindOfClass:NSMutableArray.class]) return;
+
+    NSMutableArray *items = (NSMutableArray *)dataSource;
+    for (NSInteger index = (NSInteger)items.count - 1; index >= 0; index--) {
+        id model = items[(NSUInteger)index];
+        if (CEModelIsCloudBuy(model)) {
+            [items removeObjectAtIndex:(NSUInteger)index];
+        }
+    }
+}
+
+static NSInteger CEAlarmSortNumberOfRows(id self, SEL _cmd, UITableView *tableView, NSInteger section) {
+    CERemoveCloudBuyModelsFromSortController(self);
+
+    if (!CEOrigAlarmSortNumberOfRows) return 0;
+    return CEOrigAlarmSortNumberOfRows(self, _cmd, tableView, section);
+}
+
+static void CEInstallAlarmCloudBuyDataSourceHook(void) {
+    if (CEAlarmCloudBuyDataSourceHookInstalled) return;
+
+    Class cls = objc_getClass("WYMsgAlarmDetailSortVC");
+    if (!cls) return;
+
+    SEL sel = @selector(tableView:numberOfRowsInSection:);
+    Method method = class_getInstanceMethod(cls, sel);
+    if (!method) return;
+
+    CEOrigAlarmSortNumberOfRows =
+        (NSInteger (*)(id, SEL, UITableView *, NSInteger))method_getImplementation(method);
+
+    method_setImplementation(method, (IMP)CEAlarmSortNumberOfRows);
+    CEAlarmCloudBuyDataSourceHookInstalled = YES;
+}
+
 static void CEInstallKnownHooks(void) {
     CEInstallDeviceSettingCellHook();
+    CEInstallAlarmCloudBuyDataSourceHook();
 
-    Class cloudBuyCell = objc_getClass("WYMsgAlarmDetailCloudBuyTableViewCell");
-    if (cloudBuyCell) {
-        CEReplaceClassMethod(cloudBuyCell, @selector(isClosed), (IMP)CEReturnYES0);
-        CEReplaceClassMethod(cloudBuyCell, @selector(setIsClosed:), (IMP)CENoopBool1);
-        CEReplaceClassMethod(cloudBuyCell, @selector(canShowWithDeviceId:), (IMP)CEReturnNOInteger1);
-        CEReplaceClassMethod(cloudBuyCell, @selector(contentHeight), (IMP)CEReturnMinusTen0);
-    }
     Class launch = objc_getClass("MeariLaunchAdModule");
     if (launch) {
         CEReplaceInstanceMethod(launch, @selector(setup), (IMP)CENoop0);
