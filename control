@@ -1,0 +1,9 @@
+Package: com.551.cloudedgeadremover
+Name: CloudEdge Ad Remover
+Version: 1.0.0
+Architecture: iphoneos-arm64
+Description: Removes CloudEdge 6.3.4 advertising, AI promotion UI, subscription upsells, purchase prompts, and related paid-service entry points.
+Maintainer: 551UK
+Author: 551UK
+Section: Tweaks
+Depends: mobilesubstrate
