@@ -222,12 +222,33 @@ static id CEReturnNil0(id self, SEL _cmd) { (void)self; (void)_cmd; return nil; 
 static id CEReturnNil1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)arg1; return nil; }
 static id CEReturnEmptyArray0(id self, SEL _cmd) { (void)self; (void)_cmd; return @[]; }
 
+static void CEInstallAlarmCloudBuyRowCollapseHook(void);
+
 static void (*CEOrigViewDidMoveToWindow)(UIView *, SEL);
 static void CEViewDidMoveToWindow(UIView *self, SEL _cmd) {
     CEOrigViewDidMoveToWindow(self, _cmd);
 
     const char *rawName = class_getName(self.class);
     if (!rawName || rawName[0] == '\0') return;
+
+    if (strcmp(rawName, "WYMsgAlarmDetailCloudBuyTableViewCell") == 0) {
+        CEInstallAlarmCloudBuyRowCollapseHook();
+        CEHideView(self);
+
+        UIView *ancestor = self.superview;
+        while (ancestor && ![ancestor isKindOfClass:UITableView.class]) {
+            ancestor = ancestor.superview;
+        }
+
+        if ([ancestor isKindOfClass:UITableView.class]) {
+            UITableView *tableView = (UITableView *)ancestor;
+            dispatch_async(dispatch_get_main_queue(), ^{
+                [tableView beginUpdates];
+                [tableView endUpdates];
+            });
+        }
+        return;
+    }
 
     char first = rawName[0];
     BOOL possiblePromoClass =
@@ -247,6 +268,8 @@ static void CEViewDidMoveToWindow(UIView *self, SEL _cmd) {
 
 static void (*CEOrigPresentViewController)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void));
 static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewController *controller, BOOL animated, void (^completion)(void)) {
+    CEInstallAlarmCloudBuyRowCollapseHook();
+
     if (CEControllerShouldBeBlocked(controller)) {
         if (completion) completion();
         return;
@@ -256,6 +279,7 @@ static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewCont
 
 static void (*CEOrigPushViewController)(UINavigationController *, SEL, UIViewController *, BOOL);
 static void CEPushViewController(UINavigationController *self, SEL _cmd, UIViewController *controller, BOOL animated) {
+    CEInstallAlarmCloudBuyRowCollapseHook();
 
     if (CEControllerShouldBeBlocked(controller)) return;
     CEOrigPushViewController(self, _cmd, controller, animated);
@@ -491,14 +515,5 @@ static void CEInit(void) {
         CEInstallUIKitHooks();
         CEInstallKnownHooks();
 
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-
-        });
-
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
-                       dispatch_get_main_queue(), ^{
-
-        });
     }
 }
