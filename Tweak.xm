@@ -239,49 +239,7 @@ static void CEButtonSetTitle(UIButton *self, SEL _cmd, NSString *title, UIContro
     if (CETextLooksPromotional(title)) CEHideView(self);
 }
 
-static void CEReplaceSelectorOnAllLoadedClasses(SEL sel, IMP replacement) {
-    int count = objc_getClassList(NULL, 0);
-    if (count <= 0) return;
-
-    Class *classes = (Class *)calloc((size_t)count, sizeof(Class));
-    if (!classes) return;
-
-    count = objc_getClassList(classes, count);
-    for (int i = 0; i < count; i++) {
-        Class cls = classes[i];
-        if (!cls) continue;
-
-        Method method = class_getInstanceMethod(cls, sel);
-        if (!method) continue;
-
-        const char *types = method_getTypeEncoding(method);
-        if (!types || types[0] != 'B') continue;
-
-        CEReplaceInstanceMethod(cls, sel, replacement);
-    }
-
-    free(classes);
-}
-
-static void CEInstallAlarmHistoryHooks(void) {
-    NSArray<NSString *> *falseSelectors = @[
-        @"supportAISearch",
-        @"supportAISummary",
-        @"supportAIEye",
-        @"supportAIDesc",
-        @"supportAICustom",
-        @"supportAICustomTags",
-        @"supportAIDetection",
-        @"supportCloudBuy"
-    ];
-
-    for (NSString *selectorName in falseSelectors) {
-        CEReplaceSelectorOnAllLoadedClasses(NSSelectorFromString(selectorName), (IMP)CEReturnNO0);
-    }
-}
-
 static void CEInstallKnownHooks(void) {
-    CEInstallAlarmHistoryHooks();
     Class launch = objc_getClass("MeariLaunchAdModule");
     if (launch) {
         CEReplaceInstanceMethod(launch, @selector(setup), (IMP)CENoop0);
