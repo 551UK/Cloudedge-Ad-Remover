@@ -1,33 +1,26 @@
 # CloudEdge Ad Remover
 
-Rootless tweak for **CloudEdge 6.3.4** (`com.meari.smartcamera`).
+Rootless tweak for **CloudEdge 6.3.4 / build 432** (`com.meari.smartcamera`).
 
-## What it removes
+## Features
 
-- Launch/startup advertisements.
-- Home promotion banners, discount banners, splash promotions and promotional red dots.
-- Free-trial and subscription prompts.
-- Cloud-storage purchase and upsell UI.
-- Paid-service purchase/payment screens and buttons leading into them.
-- AI-service promotion UI, AI search, AI summaries and AI-analysis entry screens.
-- Known CloudEdge promotional popups and offer cards.
-- A text/class-based fallback scrubber for server-driven promo UI that uses generic containers.
+- Removes startup/splash ads, home promo banners, discount banners and promotional red dots.
+- Removes free-trial, subscription, Cloud Storage and paid-service upsells/popups.
+- Removes AI promotion UI, AI Search, AI Summary and other AI-service entry points.
+- Removes the locked AI/paid shortcuts from the alarm-history screen.
+- Keeps the normal alarm-video detail row intact, including thumbnail, time, Feedback and Play.
+- Redirects the alarm-video **Play** action to CloudEdge's existing **History/lookback** playback path instead of the Cam Plus promo screen.
+- Adds a native-style teal **Play** button to alarm/event rows app-wide for quicker playback.
+- Preserves **Alarm Management** in camera Settings while filtering unwanted Cloud Storage / AI promotional text.
+- Includes fallback class/text filtering for server-driven promotional UI.
 
-## What it does not do
+## Compatibility
 
-This tweak does **not** fake an active subscription, unlock paid entitlements, or alter CloudEdge account/server billing state. It removes the unwanted advertising, AI and paid-service UI from the app.
+- CloudEdge **6.3.4 / build 432**
+- iOS **15+**
+- Rootless jailbreaks
+- arm64 / arm64e
 
-## Target
+## Notes
 
-- CloudEdge 6.3.4 / build 432
-- Bundle ID: `com.meari.smartcamera`
-- Rootless jailbreaks (arm64 / arm64e)
-- iOS 15+
-
-## Testing
-
-If any ad, AI item, subscription card, popup or purchase button remains, send a screenshot with the unwanted element circled in red. The remaining surface can then be mapped to its exact CloudEdge class or server-driven view and added to the remover.
-
-### v1.0.4
-- Removed the obsolete playback-button visibility hook.
-- The alarm-video Play button now uses CloudEdge's existing History action for the current event instead of opening the promotional screen.
+This tweak removes advertising, AI promotion and paid-service UI. It does **not** fake subscriptions, unlock paid entitlements or modify CloudEdge account/billing state.
