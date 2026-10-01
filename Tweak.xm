@@ -322,37 +322,37 @@ static void CEInstallUIKitHooks(void) {
 
     m = class_getInstanceMethod(UIView.class, @selector(didMoveToWindow));
     if (m) {
-        CEOrigViewDidMoveToWindow = (void *)method_getImplementation(m);
+        CEOrigViewDidMoveToWindow = (void (*)(UIView *, SEL))method_getImplementation(m);
         method_setImplementation(m, (IMP)CEViewDidMoveToWindow);
     }
 
     m = class_getInstanceMethod(UIViewController.class, @selector(viewDidAppear:));
     if (m) {
-        CEOrigViewControllerViewDidAppear = (void *)method_getImplementation(m);
+        CEOrigViewControllerViewDidAppear = (void (*)(UIViewController *, SEL, BOOL))method_getImplementation(m);
         method_setImplementation(m, (IMP)CEViewControllerViewDidAppear);
     }
 
     m = class_getInstanceMethod(UIViewController.class, @selector(presentViewController:animated:completion:));
     if (m) {
-        CEOrigPresentViewController = (void *)method_getImplementation(m);
+        CEOrigPresentViewController = (void (*)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void)))method_getImplementation(m);
         method_setImplementation(m, (IMP)CEPresentViewController);
     }
 
     m = class_getInstanceMethod(UINavigationController.class, @selector(pushViewController:animated:));
     if (m) {
-        CEOrigPushViewController = (void *)method_getImplementation(m);
+        CEOrigPushViewController = (void (*)(UINavigationController *, SEL, UIViewController *, BOOL))method_getImplementation(m);
         method_setImplementation(m, (IMP)CEPushViewController);
     }
 
     m = class_getInstanceMethod(UILabel.class, @selector(setText:));
     if (m) {
-        CEOrigLabelSetText = (void *)method_getImplementation(m);
+        CEOrigLabelSetText = (void (*)(UILabel *, SEL, NSString *))method_getImplementation(m);
         method_setImplementation(m, (IMP)CELabelSetText);
     }
 
     m = class_getInstanceMethod(UIButton.class, @selector(setTitle:forState:));
     if (m) {
-        CEOrigButtonSetTitle = (void *)method_getImplementation(m);
+        CEOrigButtonSetTitle = (void (*)(UIButton *, SEL, NSString *, UIControlState))method_getImplementation(m);
         method_setImplementation(m, (IMP)CEButtonSetTitle);
     }
 }
@@ -377,7 +377,18 @@ static void CEInit(void) {
 
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             CEInstallKnownHooks();
-            UIWindow *window = UIApplication.sharedApplication.windows.firstObject;
+            UIWindow *window = nil;
+            for (UIScene *scene in UIApplication.sharedApplication.connectedScenes) {
+                if (![scene isKindOfClass:UIWindowScene.class]) continue;
+                UIWindowScene *windowScene = (UIWindowScene *)scene;
+                for (UIWindow *candidate in windowScene.windows) {
+                    if (candidate.isKeyWindow) {
+                        window = candidate;
+                        break;
+                    }
+                }
+                if (window) break;
+            }
             CEScrubViewTree(window);
         });
     }
