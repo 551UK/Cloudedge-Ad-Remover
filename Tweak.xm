@@ -177,7 +177,14 @@ static void CEReplaceInstanceMethod(Class cls, SEL sel, IMP replacement) {
     if (!cls || !sel || !replacement) return;
     Method method = class_getInstanceMethod(cls, sel);
     if (!method) return;
-    method_setImplementation(method, replacement);
+
+    const char *types = method_getTypeEncoding(method);
+    if (class_addMethod(cls, sel, replacement, types)) {
+        return;
+    }
+
+    Method ownMethod = class_getInstanceMethod(cls, sel);
+    if (ownMethod) method_setImplementation(ownMethod, replacement);
 }
 
 static void CENoop0(id self, SEL _cmd) { (void)self; (void)_cmd; }
