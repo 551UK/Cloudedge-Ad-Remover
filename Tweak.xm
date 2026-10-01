@@ -245,12 +245,8 @@ static void CEViewDidMoveToWindow(UIView *self, SEL _cmd) {
     }
 }
 
-static void CEInstallAlarmCloudBuyDataSourceHook(void);
-
 static void (*CEOrigPresentViewController)(UIViewController *, SEL, UIViewController *, BOOL, void (^)(void));
 static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewController *controller, BOOL animated, void (^completion)(void)) {
-    CEInstallAlarmCloudBuyDataSourceHook();
-
     if (CEControllerShouldBeBlocked(controller)) {
         if (completion) completion();
         return;
@@ -260,7 +256,6 @@ static void CEPresentViewController(UIViewController *self, SEL _cmd, UIViewCont
 
 static void (*CEOrigPushViewController)(UINavigationController *, SEL, UIViewController *, BOOL);
 static void CEPushViewController(UINavigationController *self, SEL _cmd, UIViewController *controller, BOOL animated) {
-    CEInstallAlarmCloudBuyDataSourceHook();
 
     if (CEControllerShouldBeBlocked(controller)) return;
     CEOrigPushViewController(self, _cmd, controller, animated);
@@ -305,10 +300,11 @@ static void CEInstallDeviceSettingCellHook(void) {
     CEDeviceSettingCellHookInstalled = YES;
 }
 
-static NSInteger (*CEOrigAlarmSortNumberOfRows)(id, SEL, UITableView *, NSInteger) = NULL;
-static BOOL CEAlarmCloudBuyDataSourceHookInstalled = NO;
+static id (*CEOrigAlarmSortVMDataSource)(id, SEL) = NULL;
+static void (*CEOrigAlarmSortVMSetDataSource)(id, SEL, id) = NULL;
+static BOOL CEAlarmSortVMDataSourceHookInstalled = NO;
 
-static BOOL CEModelIsCloudBuy(id model) {
+static BOOL CEObjectIsCloudBuy(id model) {
     if (!model) return NO;
 
     SEL sel = NSSelectorFromString(@"isCloudBuy");
@@ -320,62 +316,58 @@ static BOOL CEModelIsCloudBuy(id model) {
     return ((BOOL (*)(id, SEL))imp)(model, sel);
 }
 
-static void CERemoveCloudBuyModelsFromSortController(id controller) {
-    if (!controller) return;
-
-    SEL sortVMSel = NSSelectorFromString(@"sortVM");
-    if (![controller respondsToSelector:sortVMSel]) return;
-
-    IMP sortVMImp = [controller methodForSelector:sortVMSel];
-    if (!sortVMImp) return;
-
-    id sortVM = ((id (*)(id, SEL))sortVMImp)(controller, sortVMSel);
-    if (!sortVM) return;
-
-    SEL dataSourceSel = NSSelectorFromString(@"dataSource");
-    if (![sortVM respondsToSelector:dataSourceSel]) return;
-
-    IMP dataSourceImp = [sortVM methodForSelector:dataSourceSel];
-    if (!dataSourceImp) return;
-
-    id dataSource = ((id (*)(id, SEL))dataSourceImp)(sortVM, dataSourceSel);
+static void CESanitizeAlarmSortDataSource(id dataSource) {
     if (![dataSource isKindOfClass:NSMutableArray.class]) return;
 
     NSMutableArray *items = (NSMutableArray *)dataSource;
     for (NSInteger index = (NSInteger)items.count - 1; index >= 0; index--) {
         id model = items[(NSUInteger)index];
-        if (CEModelIsCloudBuy(model)) {
+        if (CEObjectIsCloudBuy(model)) {
             [items removeObjectAtIndex:(NSUInteger)index];
         }
     }
 }
 
-static NSInteger CEAlarmSortNumberOfRows(id self, SEL _cmd, UITableView *tableView, NSInteger section) {
-    CERemoveCloudBuyModelsFromSortController(self);
+static id CEAlarmSortVMDataSource(id self, SEL _cmd) {
+    if (!CEOrigAlarmSortVMDataSource) return nil;
 
-    if (!CEOrigAlarmSortNumberOfRows) return 0;
-    return CEOrigAlarmSortNumberOfRows(self, _cmd, tableView, section);
+    id dataSource = CEOrigAlarmSortVMDataSource(self, _cmd);
+    CESanitizeAlarmSortDataSource(dataSource);
+    return dataSource;
 }
 
-static void CEInstallAlarmCloudBuyDataSourceHook(void) {
-    if (CEAlarmCloudBuyDataSourceHookInstalled) return;
+static void CEAlarmSortVMSetDataSource(id self, SEL _cmd, id dataSource) {
+    CESanitizeAlarmSortDataSource(dataSource);
 
-    Class cls = objc_getClass("WYMsgAlarmDetailSortVC");
+    if (CEOrigAlarmSortVMSetDataSource) {
+        CEOrigAlarmSortVMSetDataSource(self, _cmd, dataSource);
+    }
+}
+
+static void CEInstallAlarmSortVMDataSourceHook(void) {
+    if (CEAlarmSortVMDataSourceHookInstalled) return;
+
+    Class cls = objc_getClass("WYMsgAlarmDetailSortVM");
     if (!cls) return;
 
-    SEL sel = @selector(tableView:numberOfRowsInSection:);
-    Method method = class_getInstanceMethod(cls, sel);
-    if (!method) return;
+    Method getter = class_getInstanceMethod(cls, @selector(dataSource));
+    Method setter = class_getInstanceMethod(cls, @selector(setDataSource:));
+    if (!getter || !setter) return;
 
-    CEOrigAlarmSortNumberOfRows =
-        (NSInteger (*)(id, SEL, UITableView *, NSInteger))method_getImplementation(method);
+    CEOrigAlarmSortVMDataSource =
+        (id (*)(id, SEL))method_getImplementation(getter);
+    CEOrigAlarmSortVMSetDataSource =
+        (void (*)(id, SEL, id))method_getImplementation(setter);
 
-    method_setImplementation(method, (IMP)CEAlarmSortNumberOfRows);
-    CEAlarmCloudBuyDataSourceHookInstalled = YES;
+    method_setImplementation(getter, (IMP)CEAlarmSortVMDataSource);
+    method_setImplementation(setter, (IMP)CEAlarmSortVMSetDataSource);
+
+    CEAlarmSortVMDataSourceHookInstalled = YES;
 }
 
 static void CEInstallKnownHooks(void) {
     CEInstallDeviceSettingCellHook();
+    CEInstallAlarmSortVMDataSourceHook();
     CEInstallAlarmCloudBuyDataSourceHook();
 
     Class launch = objc_getClass("MeariLaunchAdModule");
@@ -484,5 +476,15 @@ static void CEInit(void) {
 
         CEInstallUIKitHooks();
         CEInstallKnownHooks();
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            CEInstallAlarmSortVMDataSourceHook();
+        });
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1.5 * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            CEInstallAlarmSortVMDataSourceHook();
+        });
     }
 }
