@@ -56,7 +56,6 @@ static BOOL CEIsBlockedClassName(NSString *name) {
             @"WYCloudPrivilegeView",
             @"WYCameraServiceDrawVC",
             @"WYAlarmMsgAIDescriptionIntroView",
-            @"WYAlarmPlayAiAnalysisView",
             @"WYAIMarkView",
             @"WYAIAnalysisFeedbackView",
             @"WYVideoAIIconListView",
