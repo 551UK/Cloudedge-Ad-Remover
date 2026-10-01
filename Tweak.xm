@@ -3,6 +3,8 @@
 #import <objc/runtime.h>
 #import <mach-o/dyld.h>
 
+static char CETextScrubberHiddenKey;
+
 static BOOL CEContainsAny(NSString *value, NSArray<NSString *> *needles) {
     if (value.length == 0) return NO;
     NSString *lower = value.lowercaseString;
@@ -108,6 +110,7 @@ static BOOL CETextLooksPromotional(NSString *text) {
             @"cloud service",
             @"ai service",
             @"ai analysis",
+            @"intelligent analysis",
             @"ai summary",
             @"ai search",
             @"intelligent ai",
@@ -145,12 +148,30 @@ static void CEScrubViewTree(UIView *view) {
     }
 
     if ([view isKindOfClass:UILabel.class]) {
-        NSString *text = ((UILabel *)view).text;
-        if (CETextLooksPromotional(text)) CEHideView(view);
+        UILabel *label = (UILabel *)view;
+        NSString *text = label.text;
+        if (CETextLooksPromotional(text)) {
+            objc_setAssociatedObject(label, &CETextScrubberHiddenKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            CEHideView(label);
+        } else if ([objc_getAssociatedObject(label, &CETextScrubberHiddenKey) boolValue]) {
+            label.hidden = NO;
+            label.alpha = 1.0;
+            label.accessibilityElementsHidden = NO;
+            objc_setAssociatedObject(label, &CETextScrubberHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        }
     } else if ([view isKindOfClass:UIButton.class]) {
         UIButton *button = (UIButton *)view;
         NSString *title = [button titleForState:UIControlStateNormal];
-        if (CETextLooksPromotional(title)) CEHideView(view);
+        if (CETextLooksPromotional(title)) {
+            objc_setAssociatedObject(button, &CETextScrubberHiddenKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+            CEHideView(button);
+        } else if ([objc_getAssociatedObject(button, &CETextScrubberHiddenKey) boolValue]) {
+            button.hidden = NO;
+            button.alpha = 1.0;
+            button.userInteractionEnabled = YES;
+            button.accessibilityElementsHidden = NO;
+            objc_setAssociatedObject(button, &CETextScrubberHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+        }
     }
 
     for (UIView *subview in view.subviews.copy) {
@@ -225,13 +246,32 @@ static void CEPushViewController(UINavigationController *self, SEL _cmd, UIViewC
 static void (*CEOrigLabelSetText)(UILabel *, SEL, NSString *);
 static void CELabelSetText(UILabel *self, SEL _cmd, NSString *text) {
     CEOrigLabelSetText(self, _cmd, text);
-    if (CETextLooksPromotional(text)) CEHideView(self);
+
+    if (CETextLooksPromotional(text)) {
+        objc_setAssociatedObject(self, &CETextScrubberHiddenKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        CEHideView(self);
+    } else if ([objc_getAssociatedObject(self, &CETextScrubberHiddenKey) boolValue]) {
+        self.hidden = NO;
+        self.alpha = 1.0;
+        self.accessibilityElementsHidden = NO;
+        objc_setAssociatedObject(self, &CETextScrubberHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+    }
 }
 
 static void (*CEOrigButtonSetTitle)(UIButton *, SEL, NSString *, UIControlState);
 static void CEButtonSetTitle(UIButton *self, SEL _cmd, NSString *title, UIControlState state) {
     CEOrigButtonSetTitle(self, _cmd, title, state);
-    if (CETextLooksPromotional(title)) CEHideView(self);
+
+    if (CETextLooksPromotional(title)) {
+        objc_setAssociatedObject(self, &CETextScrubberHiddenKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        CEHideView(self);
+    } else if ([objc_getAssociatedObject(self, &CETextScrubberHiddenKey) boolValue]) {
+        self.hidden = NO;
+        self.alpha = 1.0;
+        self.userInteractionEnabled = YES;
+        self.accessibilityElementsHidden = NO;
+        objc_setAssociatedObject(self, &CETextScrubberHiddenKey, nil, OBJC_ASSOCIATION_ASSIGN);
+    }
 }
 
 
