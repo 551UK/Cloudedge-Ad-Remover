@@ -66,8 +66,7 @@ static BOOL CEIsBlockedClassName(NSString *name) {
             @"WYSimpleAIIconListView",
             @"UIAISearchDeviceListView",
             @"UIAISearchDeviceListTableViewCell",
-            @"WYAIEyeItem",
-            @"AlarmVideoCloudUnlockView"
+            @"WYAIEyeItem"
         ]];
     });
 
