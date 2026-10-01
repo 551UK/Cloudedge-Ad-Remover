@@ -217,10 +217,6 @@ static void CENoop0(id self, SEL _cmd) { (void)self; (void)_cmd; }
 static void CENoop1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)arg1; }
 static void CENoop2(id self, SEL _cmd, id arg1, id arg2) { (void)self; (void)_cmd; (void)arg1; (void)arg2; }
 static BOOL CEReturnNO0(id self, SEL _cmd) { (void)self; (void)_cmd; return NO; }
-static BOOL CEReturnYES0(id self, SEL _cmd) { (void)self; (void)_cmd; return YES; }
-static BOOL CEReturnNOInteger1(id self, SEL _cmd, long long value) { (void)self; (void)_cmd; (void)value; return NO; }
-static double CEReturnMinusTen0(id self, SEL _cmd) { (void)self; (void)_cmd; return -10.0; }
-static void CENoopBool1(id self, SEL _cmd, BOOL value) { (void)self; (void)_cmd; (void)value; }
 static BOOL CEReturnNO1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)arg1; return NO; }
 static id CEReturnNil0(id self, SEL _cmd) { (void)self; (void)_cmd; return nil; }
 static id CEReturnNil1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)arg1; return nil; }
