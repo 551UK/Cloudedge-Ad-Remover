@@ -214,10 +214,21 @@ static void CEReplaceInstanceMethod(Class cls, SEL sel, IMP replacement) {
     if (ownMethod) method_setImplementation(ownMethod, replacement);
 }
 
+static void CEReplaceClassMethod(Class cls, SEL sel, IMP replacement) {
+    if (!cls || !sel || !replacement) return;
+
+    Method method = class_getClassMethod(cls, sel);
+    if (!method) return;
+
+    method_setImplementation(method, replacement);
+}
+
 static void CENoop0(id self, SEL _cmd) { (void)self; (void)_cmd; }
 static void CENoop1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)arg1; }
 static void CENoop2(id self, SEL _cmd, id arg1, id arg2) { (void)self; (void)_cmd; (void)arg1; (void)arg2; }
 static BOOL CEReturnNO0(id self, SEL _cmd) { (void)self; (void)_cmd; return NO; }
+static BOOL CEReturnYES0(id self, SEL _cmd) { (void)self; (void)_cmd; return YES; }
+static void CENoopBool1(id self, SEL _cmd, BOOL value) { (void)self; (void)_cmd; (void)value; }
 static BOOL CEReturnNO1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)arg1; return NO; }
 static id CEReturnNil0(id self, SEL _cmd) { (void)self; (void)_cmd; return nil; }
 static id CEReturnNil1(id self, SEL _cmd, id arg1) { (void)self; (void)_cmd; (void)arg1; return nil; }
@@ -302,6 +313,12 @@ static void CEInstallDeviceSettingCellHook(void) {
 
 static void CEInstallKnownHooks(void) {
     CEInstallDeviceSettingCellHook();
+
+    Class cloudBuyCell = objc_getClass("WYMsgAlarmDetailCloudBuyTableViewCell");
+    if (cloudBuyCell) {
+        CEReplaceClassMethod(cloudBuyCell, @selector(isClosed), (IMP)CEReturnYES0);
+        CEReplaceClassMethod(cloudBuyCell, @selector(setIsClosed:), (IMP)CENoopBool1);
+    }
     Class launch = objc_getClass("MeariLaunchAdModule");
     if (launch) {
         CEReplaceInstanceMethod(launch, @selector(setup), (IMP)CENoop0);
