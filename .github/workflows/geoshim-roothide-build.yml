@@ -1,0 +1,77 @@
+name: GeoShim RootHide DEB build
+on:
+  push:
+    branches:
+      - geoshim-roothide-build-20261028
+  workflow_dispatch:
+
+jobs:
+  geoshim:
+    runs-on: macos-14
+    timeout-minutes: 50
+    steps:
+      - name: Checkout isolated build branch
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          brew install ldid dpkg xz
+          echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
+
+      - name: Clone RootHide Theos and SDK
+        run: |
+          git clone --depth 1 --recursive https://github.com/roothide/theos.git "$HOME/theos"
+          curl -fL --retry 3 https://github.com/theos/sdks/releases/download/master-146e41f/iPhoneOS16.5.sdk.tar.xz -o "$RUNNER_TEMP/sdk.tar.xz"
+          mkdir -p "$HOME/theos/sdks"
+          tar -xf "$RUNNER_TEMP/sdk.tar.xz" -C "$HOME/theos/sdks"
+          echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
+          echo "$HOME/theos/bin" >> "$GITHUB_PATH"
+
+      - name: Build RootHide libraries
+        run: |
+          set -e
+          export THEOS="$HOME/theos"
+          mkdir -p "$THEOS/lib/iphone/roothide"
+          git clone --depth 1 https://github.com/roothide/libSandy.git "$RUNNER_TEMP/libSandy"
+          cd "$RUNNER_TEMP/libSandy"
+          make clean
+          make FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide ONLY_LIBRARY=1
+          cp .theos/obj/libsandy.dylib "$THEOS/lib/iphone/roothide/"
+          cp libSandy.h "$THEOS/include/"
+          cd "$RUNNER_TEMP"
+          git clone --depth 1 https://github.com/roothide/AltList.git "$RUNNER_TEMP/AltList"
+          cd "$RUNNER_TEMP/AltList"
+          make clean
+          make FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
+          cp -R .theos/obj/AltList.framework "$THEOS/lib/iphone/roothide/"
+
+      - name: Clone original GeoShim source and build release
+        run: |
+          set -e
+          export THEOS="$HOME/theos"
+          git clone --depth 1 https://github.com/regulad/GeoShim.git "$RUNNER_TEMP/GeoShim"
+          cd "$RUNNER_TEMP/GeoShim"
+          chmod +x layout/DEBIAN/postinst
+          make clean
+          make package FINALPACKAGE=1
+          ls -l packages/
+          mkdir -p "$GITHUB_WORKSPACE/geoshim-output"
+          cp packages/*.deb "$GITHUB_WORKSPACE/geoshim-output/"
+
+      - name: Validate compiled DEB
+        run: |
+          set -e
+          DEB=$(find geoshim-output -name '*.deb' -type f | head -n 1)
+          test -n "$DEB"
+          test "$(dpkg-deb -f "$DEB" Package)" = xyz.regulad.geoshim
+          test "$(dpkg-deb -f "$DEB" Architecture)" = iphoneos-arm64e
+          dpkg-deb -c "$DEB" | grep -E 'GeoShim.dylib|geoshim|GeoShimPrefs'
+          echo "VALIDATED_DEB=$DEB"
+
+      - name: Upload verified DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeoShim-0.2.0-RootHide
+          path: geoshim-output/*.deb
+          if-no-files-found: error
+          retention-days: 7
