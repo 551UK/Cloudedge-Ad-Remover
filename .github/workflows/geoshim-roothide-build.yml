@@ -68,6 +68,7 @@ jobs:
           exports:
             - archs: [ arm64, arm64e ]
               objc-classes: [ PSListController, PSSpecifier ]
+              objc-ivars: [ 'PSListController._specifiers' ]
           ...
           STUB
           mkdir -p "$THEOS/lib/iphone/roothide/Preferences.framework"
