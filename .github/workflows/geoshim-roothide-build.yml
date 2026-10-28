@@ -27,23 +27,33 @@ jobs:
           echo "THEOS=$HOME/theos" >> "$GITHUB_ENV"
           echo "$HOME/theos/bin" >> "$GITHUB_PATH"
 
-      - name: Build RootHide libraries
+      - name: Stage runtime dependency link stubs
         run: |
-          set -e
+          set -eu
           export THEOS="$HOME/theos"
-          mkdir -p "$THEOS/lib/iphone/roothide"
-          git clone --depth 1 https://github.com/roothide/libSandy.git "$RUNNER_TEMP/libSandy"
-          cd "$RUNNER_TEMP/libSandy"
-          make clean
-          make FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide ONLY_LIBRARY=1
-          cp .theos/obj/libsandy.dylib "$THEOS/lib/iphone/roothide/"
-          cp libSandy.h "$THEOS/include/"
-          cd "$RUNNER_TEMP"
-          git clone --depth 1 https://github.com/roothide/AltList.git "$RUNNER_TEMP/AltList"
-          cd "$RUNNER_TEMP/AltList"
-          make clean
-          make FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
-          cp -R .theos/obj/AltList.framework "$THEOS/lib/iphone/roothide/"
+          mkdir -p "$THEOS/lib/iphone/roothide/AltList.framework"
+          # Linking stubs reference the real runtime dylibs provided by package Depends.
+          # Neither library is shipped or replaced by this package.
+          cat > "$THEOS/lib/iphone/roothide/libsandy.tbd" <<'STUB'
+          --- !tapi-tbd-v3
+          archs: [ arm64, arm64e ]
+          platform: ios
+          install-name: '@loader_path/.jbroot/usr/lib/libsandy.dylib'
+          exports:
+            - archs: [ arm64, arm64e ]
+              symbols: [ _libSandy_applyProfile ]
+          ...
+          STUB
+          cat > "$THEOS/lib/iphone/roothide/AltList.framework/AltList.tbd" <<'STUB'
+          --- !tapi-tbd-v3
+          archs: [ arm64, arm64e ]
+          platform: ios
+          install-name: '@loader_path/.jbroot/Library/Frameworks/AltList.framework/AltList'
+          exports:
+            - archs: [ arm64, arm64e ]
+              objc-classes: [ ATLApplicationListMultiSelectionController ]
+          ...
+          STUB
 
       - name: Clone original GeoShim source and build release
         run: |
