@@ -5,6 +5,9 @@ on:
       - geoshim-roothide-build-20261028
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   geoshim:
     runs-on: macos-14
@@ -77,6 +80,17 @@ jobs:
           test "$(dpkg-deb -f "$DEB" Architecture)" = iphoneos-arm64e
           dpkg-deb -c "$DEB" | grep -E 'GeoShim.dylib|geoshim|GeoShimPrefs'
           echo "VALIDATED_DEB=$DEB"
+
+      - name: Publish direct package download in this isolated branch
+        run: |
+          set -eu
+          mkdir -p dist
+          cp geoshim-output/*.deb dist/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f dist/*.deb
+          git commit -m "Add validated GeoShim RootHide DEB binary"
+          git push origin HEAD:refs/heads/geoshim-roothide-build-20261028
 
       - name: Upload verified DEB
         uses: actions/upload-artifact@v4
