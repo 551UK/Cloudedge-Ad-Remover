@@ -57,6 +57,21 @@ jobs:
               objc-classes: [ ATLApplicationListMultiSelectionController ]
           ...
           STUB
+          # Preferences is a device private framework; the minimal public SDK does
+          # not contain its link metadata. Use a compile-only TBD definition.
+          mkdir -p "$THEOS/sdks/iPhoneOS16.5.sdk/System/Library/PrivateFrameworks/Preferences.framework"
+          cat > "$THEOS/sdks/iPhoneOS16.5.sdk/System/Library/PrivateFrameworks/Preferences.framework/Preferences.tbd" <<'STUB'
+          --- !tapi-tbd-v3
+          archs: [ arm64, arm64e ]
+          platform: ios
+          install-name: '/System/Library/PrivateFrameworks/Preferences.framework/Preferences'
+          exports:
+            - archs: [ arm64, arm64e ]
+              objc-classes: [ PSListController, PSSpecifier ]
+          ...
+          STUB
+          mkdir -p "$THEOS/lib/iphone/roothide/Preferences.framework"
+          cp "$THEOS/sdks/iPhoneOS16.5.sdk/System/Library/PrivateFrameworks/Preferences.framework/Preferences.tbd" "$THEOS/lib/iphone/roothide/Preferences.framework/Preferences.tbd"
 
       - name: Clone original GeoShim source and build release
         run: |
